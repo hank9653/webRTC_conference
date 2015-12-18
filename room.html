@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<!--
+ *  Copyright (c) 2014 The WebRTC project authors. All Rights Reserved.
+ *
+ *  Use of this source code is governed by a BSD-style license
+ *  that can be found in the LICENSE file in the root of the source
+ *  tree.
+-->
+<html>
+<head>
+
+  <meta charset="utf-8">
+  <meta name="description" content="WebRTC reference app">
+  <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1, maximum-scale=1">
+  <meta itemprop="description" content="Video chat using the reference WebRTC application">
+  <meta itemprop="image" content="/images/webrtc-icon-192x192.png">
+  <meta itemprop="name" content="AppRTC">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta id="theme-color" name="theme-color" content="#ffffff">
+
+  <base target="_blank">
+
+  <title>webRTC</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" sizes="192x192" href="images/webrtc-icon-192x192.png">
+  <link rel="stylesheet" href="css/main.css">
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+
+  <script src="//cdn.webrtc-experiment.com/firebase.js"></script>
+  <script src="js/RTCMultiConnection.js"></script>
+
+</head>
+
+<body>
+  <!--
+   * Keep the HTML id attributes in sync with |UI_CONSTANTS| defined in
+   * appcontroller.js.
+  -->
+  <div id="videos">
+    <video id="remote-video" autoplay></video>
+    <video id="local-video" autoplay muted></video>
+  </div>
+
+  <div id="room-selection" class="">
+    <h1>webRTC</h1>
+    <p id="instructions">Please enter a room name.</p>
+    <div>
+      <div id="room-id-input-div">
+        <input type="text" id="room-id-input" autofocus/>
+        <label class="error-label hidden" for="room-id-input" id="room-id-input-label">Room name must be 5 or more characters and include only letters and numbers.</label>
+      </div>
+      <div id="room-id-input-buttons">
+        <button id="join-button">JOIN</button>
+        <button id="random-button">RANDOM</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirm-join-div" class="hidden">
+    <div>Ready to join<span id="confirm-join-room-span"></span>?</div>
+    <button id="confirm-join-button">JOIN</button>
+  </div>
+
+  <footer>
+    <div id="sharing-div">
+      <div id="room-link">Waiting for someone to join this room: <a id="room-link-href" href="{{ room_link }}" target="_blank"></a></div>
+    </div>
+    <div id="info-div">Code for AppRTC is available from <a href="http://github.com/webrtc/apprtc" title="GitHub repo for AppRTC">github.com/webrtc/apprtc</a></div>
+    <div id="status-div"></div>
+    <div id="rejoin-div" class=""><span>You have left the call.</span> <button id="rejoin-button">REJOIN</button><button id="new-room-button">NEW ROOM</button></div>
+  </footer>
+
+  <div id="icons" class="">
+
+    <svg id="mute-audio" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewbox="-10 -10 68 68">
+    <title>title</title>
+      <circle cx="24" cy="24" r="34">
+        <title>Mute audio</title>
+      </circle>
+      <path class="on" transform="scale(0.6), translate(17,18)" d="M38 22h-3.4c0 1.49-.31 2.87-.87 4.1l2.46 2.46C37.33 26.61 38 24.38 38 22zm-8.03.33c0-.11.03-.22.03-.33V10c0-3.32-2.69-6-6-6s-6 2.68-6 6v.37l11.97 11.96zM8.55 6L6 8.55l12.02 12.02v1.44c0 3.31 2.67 6 5.98 6 .45 0 .88-.06 1.3-.15l3.32 3.32c-1.43.66-3 1.03-4.62 1.03-5.52 0-10.6-4.2-10.6-10.2H10c0 6.83 5.44 12.47 12 13.44V42h4v-6.56c1.81-.27 3.53-.9 5.08-1.81L39.45 42 42 39.46 8.55 6z" fill="white"/>
+      <path class="off" transform="scale(0.6), translate(17,18)"  d="M24 28c3.31 0 5.98-2.69 5.98-6L30 10c0-3.32-2.68-6-6-6-3.31 0-6 2.68-6 6v12c0 3.31 2.69 6 6 6zm10.6-6c0 6-5.07 10.2-10.6 10.2-5.52 0-10.6-4.2-10.6-10.2H10c0 6.83 5.44 12.47 12 13.44V42h4v-6.56c6.56-.97 12-6.61 12-13.44h-3.4z"  fill="white"/>
+    </svg>
+
+    <svg id="mute-video" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewbox="-10 -10 68 68">
+      <circle cx="24" cy="24" r="34">
+        <title>Mute video</title>
+      </circle>
+      <path class="on" transform="scale(0.6), translate(17,16)" d="M40 8H15.64l8 8H28v4.36l1.13 1.13L36 16v12.36l7.97 7.97L44 36V12c0-2.21-1.79-4-4-4zM4.55 2L2 4.55l4.01 4.01C4.81 9.24 4 10.52 4 12v24c0 2.21 1.79 4 4 4h29.45l4 4L44 41.46 4.55 2zM12 16h1.45L28 30.55V32H12V16z" fill="white"/>
+      <path class="off" transform="scale(0.6), translate(17,16)" d="M40 8H8c-2.21 0-4 1.79-4 4v24c0 2.21 1.79 4 4 4h32c2.21 0 4-1.79 4-4V12c0-2.21-1.79-4-4-4zm-4 24l-8-6.4V32H12V16h16v6.4l8-6.4v16z" fill="white"/>
+    </svg>
+
+    <svg id="fullscreen" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewbox="-10 -10 68 68">
+      <circle cx="24" cy="24" r="34">
+        <title>Enter fullscreen</title>
+      </circle>
+      <path class="on" transform="scale(0.8), translate(7,6)" d="M10 32h6v6h4V28H10v4zm6-16h-6v4h10V10h-4v6zm12 22h4v-6h6v-4H28v10zm4-22v-6h-4v10h10v-4h-6z" fill="white"/>
+      <path class="off" transform="scale(0.8), translate(7,6)"  d="M14 28h-4v10h10v-4h-6v-6zm-4-8h4v-6h6v-4H10v10zm24 14h-6v4h10V28h-4v6zm-6-24v4h6v6h4V10H28z" fill="white"/>
+    </svg>
+
+    <svg id="hangup" class="hidden" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewbox="-10 -10 68 68">
+      <circle cx="24" cy="24" r="34">
+        <title>Hangup</title>
+      </circle>
+      <path transform="scale(0.7), translate(11,10)" d="M24 18c-3.21 0-6.3.5-9.2 1.44v6.21c0 .79-.46 1.47-1.12 1.8-1.95.98-3.74 2.23-5.33 3.7-.36.35-.85.57-1.4.57-.55 0-1.05-.22-1.41-.59L.59 26.18c-.37-.37-.59-.87-.59-1.42 0-.55.22-1.05.59-1.42C6.68 17.55 14.93 14 24 14s17.32 3.55 23.41 9.34c.37.36.59.87.59 1.42 0 .55-.22 1.05-.59 1.41l-4.95 4.95c-.36.36-.86.59-1.41.59-.54 0-1.04-.22-1.4-.57-1.59-1.47-3.38-2.72-5.33-3.7-.66-.33-1.12-1.01-1.12-1.8v-6.21C30.3 18.5 27.21 18 24 18z" fill="white"/>
+    </svg>
+
+  </div>
+  <script>
+    var connection = new RTCMultiConnection();
+    connection.session = {
+      audio : true,
+      video : true,
+      data : true
+    };
+
+    /*connection.onmessage = function(e){
+      alert(e.data);
+      console.log("傳送訊息的資訊");
+      console.log(e);
+    }
+
+    var i=0;
+    $('#mute-video').click(function(){
+        connection.send("送了"+i+"次");
+        i++;
+    });*/
+
+
+    $('#mute-audio').click(function(){
+      if($('#mute-audio').attr('class')=='on'){
+        connection.streams.unmute({
+            audio: true,
+            type: 'local'
+        });
+        $('#mute-audio').attr('class',' ');
+        console.log($('#mini-video').attr('streamid')+" streamid's audio is mute.");
+
+      }else{
+        connection.streams.mute({
+            audio: true,
+            type: 'local'
+        });
+        $('#mute-audio').attr('class','on');
+        console.log($('#mini-video').attr('streamid')+" streamid's audio is unmute.");
+      }
+        
+    });
+
+    $('#mute-video').click(function(){
+        if($('#mute-video').attr('class')=='on'){
+        connection.streams.unmute({
+            video: true
+        });
+        $('#mute-video').attr('class',' ');
+        console.log($('#mini-video').attr('streamid')+" streamid's video is mute.");
+
+      }else{
+        connection.streams.mute({
+            video: true
+        });
+        $('#mute-video').attr('class','on');
+        console.log($('#mini-video').attr('streamid')+" streamid's video is unmute.");
+      }
+    });
+
+    $('#fullscreen').click(function(){
+        if($('#fullscreen').attr('class')=='on'){
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+          } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen();
+          } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+          }
+          $('#fullscreen').attr('class',' ');
+        }else{
+          $('#fullscreen').attr('class','on');
+          var elem = document.documentElement;
+          if (elem.requestFullscreen) {
+            elem.requestFullscreen();
+          } else if (elem.msRequestFullscreen) {
+            elem.msRequestFullscreen();
+          } else if (elem.mozRequestFullScreen) {
+            elem.mozRequestFullScreen();
+          } else if (elem.webkitRequestFullscreen) {
+            elem.webkitRequestFullscreen();
+          }
+        }
+    });
+
+
+    /*// if local or remote stream is muted
+    connection.onmute = function(e) {
+        e.mediaElement.setAttribute('poster', '//www.webrtc-experiment.com/images/muted.png');
+    };
+
+    // if local or remote stream is unmuted
+    connection.onunmute = function(e) {
+        e.mediaElement.removeAttribute('poster');
+    };*/
+
+
+
+    $('#hangup').click(function(){
+        connection.close();
+    });
+    connection.onSessionClosed = function(e) {
+    // entire session is closed
+    connection.close();
+    // e.userid
+    // e.extra
+    // e.isSessionClosed
+    
+    // e.session == connection.sessionDescription
+    // e.session.sessionid
+    // e.session.userid --- initiator id
+    // e.session.session -- {audio:true, video:true}
+};
+
+
+
+
+
+    connection.onstream = function(e) {
+      e.mediaElement.width = 600;
+      console.log(e.streamid);
+      //rotateVideo(e.mediaElement);
+      $('#videos').attr('class', 'active');
+      if (e.type == 'remote') {
+        //var remoteVideo=document.createElement('video');
+        //remoteVideo.id="mini-video";
+        //remoteVideo.autoplay="";
+        //remoteVideo.muted="";
+        //remoteVideo.src=e.blobURL;
+        //remoteVideo.class="active";*/
+        /*$("#remote-video").before('<div><video id="mini-video" autoplay="" muted="" src="'+e.blobURL+'" class="active"></video></div>');
+
+        $('#mini-video').attr('src', e.blobURL);
+        $('#mini-video').attr('class', 'active');
+
+        $('#remote-video').attr('src', $('#local-video').attr('src'));
+        $('#remote-video').attr('class', 'active');
+
+        $('#sharing-div').attr('class', " ");
+        $('#local-video').removeAttr('src');
+
+        $('#hangup').attr('class',' ');
+        $('#leave').attr('class',' ');*/
+
+        $("#remote-video").before('<div><video id="mini-video" autoplay="" muted="" src="'+$('#local-video').attr('src')+'" class="active"></video></div>');
+
+        $('#mini-video').attr('src', $('#local-video').attr('src'));
+        $('#mini-video').attr('class', 'active');
+        $('#mini-video').attr('streamid', e.streamid);
+
+        $('#remote-video').attr('src', e.blobURL);
+        $('#remote-video').attr('class', 'active');
+
+        $('#sharing-div').attr('class', " ");
+        $('#local-video').removeAttr('src');
+
+        $('#hangup').attr('class',' ');
+        $('#leave').attr('class',' ');
+
+      } else {
+       /*$('#local-video').attr('src', e.blobURL);
+        $('#sharing-div').attr('class', "active");
+        $('#room-link-href').attr('href', location.href);
+        $('#room-link-href').text(location.href);*/
+
+        $('#local-video').attr('src', e.blobURL);
+        $('#sharing-div').attr('class', "active");
+        $('#room-link-href').attr('href', location.href);
+        $('#room-link-href').text(location.href);
+      }
+
+      $( document ).ready(function() {
+          $('body').mouseover(function(){//無法取得#videos    需判斷videos是否active
+            $('#icons').attr('class','active');
+          })
+          .mouseout(function(){
+            $('#icons').attr('class','hidden');
+          });
+      });
+      console.log("進來畫面的資訊"); 
+      console.log(e);
+    };
+
+    connection.onstreamended = function(e) {
+      e.mediaElement.style.opacity = 0;
+      alert("onstreamended");
+      setTimeout(function() {
+        if (e.mediaElement.parentNode) {
+          e.mediaElement.parentNode.removeChild(e.mediaElement);
+        }
+      }, 1000);
+    };
+
+    var sessions = { };
+    connection.onNewSession = function(session) {
+      if (sessions[session.sessionid]) {
+        console.log("session1");
+        console.log(session);
+        return;
+      }
+      sessions[session.sessionid] = session;
+      console.log("session2");
+      console.log(session);
+
+      $('#confirm-join-div').attr('class', ' ');
+
+      var joinRoomButton = document.getElementById('confirm-join-button');
+      $('#confirm-join-button').attr('data-sessionid', session.sessionid);
+      joinRoomButton.onclick = function() {
+        $('#confirm-join-div').attr('class', 'hidden');
+        $('#room-selection').attr('class', 'hidden');
+        var sessionid = this.getAttribute('data-sessionid');
+        session = sessions[sessionid];
+
+        if (!session)
+          throw 'No such session exists.';
+
+        connection.join(session);
+      };
+    };
+
+
+
+    if (location.hash.length > 1) {
+      console.log('有房間');
+      $('#room-selection').attr('class', 'hidden');
+      $('#room-id-input').val();
+      navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+
+      var constraints = {audio: true, video: true};
+
+      function successCallback(stream) {
+        window.stream = stream; // stream available to console
+        if (window.URL) {
+          $('#local-video').attr('src', window.URL.createObjectURL(stream));
+        } else {
+          $('#local-video').attr('src', stream);
+        }
+      }
+
+      function errorCallback(error){
+        console.log("navigator.getUserMedia error: ", error);
+      }
+
+      navigator.getUserMedia(constraints, successCallback, errorCallback);
+
+
+      // setup signaling to search existing sessions
+      connection.connect();
+    } else {
+      console.log('無房間');
+      document.getElementById('join-button').onclick = function() {
+        $('#room-selection').attr('class', 'hidden');
+        $('#room-id-input').val();
+        var href_hash = $('#room-id-input').val() || ' ';
+        //alert('href_hash:'+href_hash);
+        document.location.href = location.href + href_hash;
+        //不加房號會出錯
+        connection.extra = {
+          'session-name' : location.hash || "location.hash"
+        };
+        connection.channel = location.href.replace(/\/|:|#|\?|\$|\^|%|\.|`|~|!|@|\[|\||]|\|*. /g, '').split('\n').join('').split('\r').join('');
+              // setup signaling to search existing sessions
+        connection.connect();
+        connection.open();
+      };
+    }
+
+    (function() {
+      var room_link = document.getElementById('room-link');
+      if (room_link)
+        if (location.hash.length > 2)
+          $('#room_link').attr('href', location.href);
+        else
+          //Math.round(900000*Math.random()+100000); 隨機六位數
+          $('#room-id-input').val('#' + (Math.random() * new Date().getTime()).toString(36).toUpperCase().replace(/\./g, '-'));
+      //
+     
+
+    })();
+  </script>
+
+</body>
+</html>
